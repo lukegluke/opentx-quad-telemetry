@@ -12,7 +12,7 @@
 local settings = {
 	arm = {switch = 'sd', target = 100},
 	mode = {switch = 'sb', list = {'Acro', 'Angle', 'Horizon'}},
-	battery = {voltage = 'VFAS', used = 'Fuel', radio = 'tx-voltage'},
+	battery = {voltage = 'VFAS', used = 'Fuel'},
 	telemetry = {satcount = 'Sats', timer = 1}
 }
 
@@ -54,7 +54,7 @@ end
 
 -- Big and sexy battery graphic with average cell voltage
 local function drawVoltageImage(x, y, w)
-	local batt, cell = 0, 0
+	local batt, cell, battMin = 0, 0, 3.3
 
 	-- Try to calculate cells count from batt voltage or skip if using Cels telemetry
 	-- Don't support 5s and 7s: it's dangerous to detect - empty 8s look like an 7s!
@@ -72,9 +72,8 @@ local function drawVoltageImage(x, y, w)
 		batt = voltage
 	end
 
-	-- Set mix-max battery cell value, also detect HV type
-	local voltageHigh = batt > 4.22 * cell and 4.35 or 4.2
-	local voltageLow = 3.3
+	-- Store max voltage per cell until batt is changed, also detect HV type
+	battMax = math.max(link ~= 0 and battMax or 0, batt > 4.22 * cell and 4.35 or 4.2)
 
 	-- Draw battery outline
 	lcd.drawLine(x + 2, y + 1, x + w - 2, y + 1, SOLID, 0)
@@ -93,13 +92,13 @@ local function drawVoltageImage(x, y, w)
 	lcd.drawLine(x + w / 4 * 3, y + 44, x + w - 1, y + 44, SOLID, 0)
 
 	-- Place voltage text [top, middle, bottom]
-	lcd.drawText(x + w + 4, y + 00, string.format('%.2fv', voltageHigh), SMLSIZE)
-	lcd.drawText(x + w + 4, y + 24, string.format('%.2fv', (voltageHigh - voltageLow) / 2 + voltageLow), SMLSIZE)
-	lcd.drawText(x + w + 4, y + 47, string.format('%.2fv', voltageLow), SMLSIZE)
+	lcd.drawText(x + w + 4, y + 00, string.format('%.2fv', battMax), SMLSIZE)
+	lcd.drawText(x + w + 4, y + 24, string.format('%.2fv', (battMax - battMin) / 2 + battMin), SMLSIZE)
+	lcd.drawText(x + w + 4, y + 47, string.format('%.2fv', battMin), SMLSIZE)
 
 	-- Fill the battery
 	for offset = 0, 46, 1 do
-		if ((offset * (voltageHigh - voltageLow) / 47) + voltageLow) < tonumber(batt / cell) then
+		if ((offset * (battMax - battMin) / 47) + battMin) < tonumber(batt / cell) then
 			lcd.drawLine(x + 1, y + 49 - offset, x + w - 1, y + 49 - offset, SOLID, 0)
 		end
 	end
@@ -315,7 +314,7 @@ local function gatherInput(event)
 	link = crsf and getValue('TQly') or getRSSI()
 
 	-- Get current transmitter voltage
-	txvoltage = getValue(settings.battery.radio)
+	txvoltage = getValue('tx-voltage')
 
 	-- Get quad battery voltage source
 	voltage = getValue(crsf and 'RxBt' or settings.battery.voltage)
@@ -366,7 +365,7 @@ local function background()
 
 	-- Get seconds left in model timer
 	timerLeft = model.getTimer(timerName).value
-	timerMax = math.max(timerLeft, timerMax)
+	timerMax = math.max(timerLeft, timerMax or 0)
 
 	-- Store last capacity drained value
 	mah = link ~= 0 and capacity or mah or 0
@@ -421,8 +420,8 @@ local function run(event)
 end
 
 local function init()
-	-- Detect crossfire module onboard
-	crsf = crossfireTelemetryPush() ~= nil
+	-- Detect if long-range module is used
+	crsf = crossfireTelemetryPush and crossfireTelemetryPush() ~= nil
 
 	-- Model name from the radio
 	modelName = model.getInfo()['name']
@@ -435,9 +434,6 @@ local function init()
 
 	-- Store GPS coordinates
 	pos = {lat = 0, lon = 0}
-
-	-- Timer tracking
-	timerMax = 0
 end
 
 return { init = init, run = run, background = background }
