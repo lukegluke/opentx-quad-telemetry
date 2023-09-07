@@ -13,7 +13,7 @@ local settings = {
 	arm = {switch = 'sd', target = 100},
 	mode = {switch = 'sb', list = {'Acro', 'Angle', 'Horizon'}},
 	battery = {voltage = 'VFAS', used = 'Fuel'},
-	telemetry = {satcount = 'Sats', timer = 1}
+	telemetry = {satcount = 'Sats', alt = 'Alt', timer = 1}
 }
 
 ------- DRAW FUNCTIONS -------
@@ -288,16 +288,17 @@ local function drawPosition(x, y)
 
 	-- Draw main border
 	lcd.drawRectangle(x, y, 44, 10)
-	lcd.drawRectangle(x, y + 9, 44, 20, SOLID)
+	lcd.drawRectangle(x, y + 9, 44, 28, SOLID)
 
 	-- Draw caption and GPS coordinates
 	lcd.drawText(x + 2, y + 2, 'GPS', SMLSIZE)
 	lcd.drawText(x + 4, y + 12, string.sub(string.format('%09.6f', pos.lat), 0, 8), SMLSIZE)
 	lcd.drawText(x + 4, y + 20, string.sub(string.format('%09.6f', pos.lon), 0, 8), SMLSIZE)
+    lcd.drawText(x + 4, y + 28, string.sub(string.format('%dm', pos.alt), 0, 8), SMLSIZE)
 
 	-- Blink if telemetry is lost
 	if pos.lost then
-		lcd.drawFilledRectangle(x + 1, y + 10, 42, math.ceil(tick) ~= 1 and 18 or 0)
+		lcd.drawFilledRectangle(x + 1, y + 10, 42, math.ceil(tick) ~= 1 and 26 or 0)
 	elseif sats ~= 0 then
 		-- Draw sats count if telemetry source exists
 		lcd.drawText(x + 36 - #tostring(sats) * 5, y + 2, sats, SMLSIZE + (sats >= 3 and 0 or BLINK))
@@ -334,6 +335,9 @@ local function gatherInput(event)
 
 	-- Check if GPS telemetry exists and get position
 	gps = getFieldInfo('GPS') and getValue('GPS') or false
+
+    --- Get altitude value
+    alt = getValue(crsf and 'Alt' or settings.telemetry.alt)
 
 	-- Animation helper
 	tick = math.fmod(getTime() / 100, 2)
@@ -377,6 +381,7 @@ local function background()
 	-- Check if GPS data coming
 	if type(gps) == 'table' then
 		pos = gps
+        pos.alt = alt
 	elseif pos.lat ~= 0 then
 		pos.lost = true
 	end
@@ -402,25 +407,34 @@ local function run(event)
 	lcd.drawLine(0, 7, screen.w - 1, 7, SOLID, FORCE)
 
 	-- Draw voltage battery graphic in left side
-	drawVoltageImage(3, 8, screen.w / 10, screen.h - 8)
-
-	-- Draw fly mode centered above sexy quad
-	drawModeTitle(screen.w / 2, screen.h / 4 - 7)
-
-	-- Draw sexy quadcopter animated in center
-	drawQuadcopter(screen.w / 2 - 17,  screen.h / 2 - 14)
-
-	-- Draw rx signal strength or transmitter output at right top
-	drawData = (crsf and screen.alt) and drawOutput or drawLink
+	--- drawVoltageImage(3, 8, screen.w / 10, screen.h - 8)
+    
+    -- Draw GPS position at left top
+	drawData = (gps) and drawPosition
+	drawData(0, (screen.h - 8) / 4 - 5)
+    
+    -- Draw flight timer at right top
+    drawData = drawFlightTimer
 	drawData(screen.w - 44, (screen.h - 8) / 4 - 5)
 
-	-- Draw flight timer or GPS position at right bottom
-	drawData = (gps and screen.alt) and drawPosition or drawFlightTimer
-	drawData(screen.w - 44, (screen.h - 8) / 4 * 3 - 8)
+	-- Draw fly mode centered
+	drawModeTitle(screen.w / 2, screen.h / 4 - 7)
 
-	-- Draw battery capacity drained or current voltage at bottom middle
-	drawData = (mah ~= 0 and screen.alt) and drawCapacityUsed or drawVoltageText
-	drawData(screen.w / 2 - 21, screen.h - (screen.h - 8) / 4 + 1)
+	-- Draw current voltage at center
+	drawData = drawVoltageText
+	drawData(screen.w / 2 - 21, (screen.h - 8) / 4 * 2 - 8)
+    
+    -- Draw battery capacity drained at center
+	drawData = drawCapacityUsed
+	drawData(screen.w / 2 - 21, (screen.h - 8) / 4 * 3 - 8)
+    
+	-- Draw rx signal strength output at left bottom
+	drawData = drawLink
+	drawData(0, (screen.h - 8) / 4 * 3 - 8)
+    
+    -- Draw transmitter output at right bottom
+	drawData = (crsf) and drawOutput
+	drawData(screen.w - 44, (screen.h - 8) / 4 * 3 - 8)
 end
 
 local function init()
@@ -437,7 +451,7 @@ local function init()
 	screen = {w = LCD_W, h = LCD_H}
 
 	-- Store GPS coordinates
-	pos = {lat = 0, lon = 0}
+	pos = {lat = 0, lon = 0, alt = 0}
 end
 
 return { init = init, run = run, background = background }
