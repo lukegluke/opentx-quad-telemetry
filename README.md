@@ -1,8 +1,8 @@
 # OpenTX Quad telemetry dashboard
 
-Advanced lua-based dashboard for the OpenTX Monochrome LCD Transmitters
+Customized advanced lua-based dashboard for the OpenTX Monochrome LCD Transmitters with only useful data on main screen
 
-![opentx-quad-telemetry](https://i.postimg.cc/Jz1CdwTG/opentx-quad-telemetry.gif)
+![opentx-quad-telemetry](https://i.ibb.co/yn6MMc2/image.png)
 
 ## Features
 
@@ -62,5 +62,3 @@ These instructions are for the **X9 Lite**, so please be aware the steps may var
 ## Usage
 
 To **invoke the script**, simply long-press the <kbd>PAGE</kbd> button or shortly press <kbd>TELE</kbd> from the **model screen**.
-
-Shortly press <kbd>EXIT</kbd> or <kbd>RTN</kbd> to display **Transmitter output** info *(for crossfire)* and **GPS positioning** section *(if telemetry source exists)*.
